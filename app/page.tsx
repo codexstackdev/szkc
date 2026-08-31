@@ -39,11 +39,25 @@ const page = () => {
 
   const isRegistering = mode === "register";
 
-  const handleSubmit = (e: React.SubmitEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    console.log(credData)
-    toast.success("Registered successfully")
-    setSubmitted(true);
+    if (!isRegistering) {
+      toast.info("Sign-in will be connected after registration.");
+      return;
+    }
+    try {
+      const response = await fetch("/api/v1/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(credData),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message);
+      toast.success(result.message);
+      setSubmitted(true);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Registration failed.");
+    }
   };
 
   return (
