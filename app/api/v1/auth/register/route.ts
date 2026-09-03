@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { db } from "@/lib/db";
-
+import { getSupabaseAdmin } from "@/lib/db";
 
 export async function POST(req: NextRequest) {
     try {
@@ -21,18 +20,44 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ success: false, message: "Passwords must match and contain at least 8 characters." }, { status: 400 });
         }
 
-        const [existing] = await db.execute("SELECT id FROM users WHERE email = ? LIMIT 1", [email]);
-        if (Array.isArray(existing) && existing.length > 0) {
+        const supabase = getSupabaseAdmin();
+        const { data: existing, error: lookupError } = await supabase
+            .from("users")
+            .select("id")
+            .eq("email", email)
+            .maybeSingle();
+
+        if (lookupError) {
+            throw lookupError;
+        }
+
+        if (existing) {
             return NextResponse.json({ success: false, message: "An account with this email already exists." }, { status: 409 });
         }
 
         const passwordHash = await bcrypt.hash(password, 10);
-        const [result] = await db.execute(
-            "INSERT INTO users (firstName, middleName, lastName, ext, email, passwordHash) VALUES (?, ?, ?, ?, ?, ?)",
-            [firstName, middleName, lastName, nameExtension, email, passwordHash],
-        );
+        const { data: user, error: insertError } = await supabase
+            .from("users")
+            .insert({
+                firstName: firstName,
+                middleName: middleName,
+                lastName: lastName,
+                ext: nameExtension,
+                email,
+                passwordHash: passwordHash,
+            })
+            .select("id")
+            .single();
 
-        return NextResponse.json({ success: true, message: "Account created successfully.", userId: (result as { insertId: number }).insertId }, { status: 201 });
+        if (insertError) {
+            // The unique index is the final guard against two simultaneous registrations.
+            if (insertError.code === "23505") {
+                return NextResponse.json({ success: false, message: "An account with this email already exists." }, { status: 409 });
+            }
+            throw insertError;
+        }
+
+        return NextResponse.json({ success: true, message: "Account created successfully.", userId: user.id }, { status: 201 });
     } catch (error) {
         console.error("Registration failed:", error);
         return NextResponse.json({ success: false, message: "Unable to create the account." }, { status: 500 });

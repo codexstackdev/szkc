@@ -1,23 +1,40 @@
-import mysql, { type Pool } from "mysql2/promise";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 declare global {
-  // eslint-disable-next-line no-var
-  var mariaDbPool: Pool | undefined;
+  var supabaseAdmin: SupabaseClient | undefined;
 }
 
-export const db =
-  global.mariaDbPool ??
-  mysql.createPool({
-    host: process.env.DB_HOST ?? "127.0.0.1",
-    port: Number(process.env.DB_PORT ?? 3306),
-    user: process.env.DB_USER ?? "root",
-    password: process.env.DB_PASSWORD ?? "",
-    database: process.env.DB_NAME ?? "szkc",
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
+/**
+ * Server-only Supabase client for database operations.
+ *
+ * Keep the service-role key out of NEXT_PUBLIC_* variables. It bypasses RLS
+ * and must never be sent to the browser.
+ */
+export function getSupabaseAdmin() {
+  if (global.supabaseAdmin) {
+    return global.supabaseAdmin;
+  }
+
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error(
+      "Missing NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.",
+    );
+  }
+
+  const client = createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
   });
 
-if (process.env.NODE_ENV !== "production") {
-  global.mariaDbPool = db;
+  if (process.env.NODE_ENV !== "production") {
+    global.supabaseAdmin = client;
+  }
+
+  return client;
 }
