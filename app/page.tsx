@@ -20,7 +20,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { register } from "@/hooks/actions";
+import { login, register } from "@/hooks/actions";
+import { Spinner } from "@/components/ui/spinner";
+import { useRouter } from "next/navigation";
 
 const page = () => {
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -28,6 +30,7 @@ const page = () => {
   const [showRepassword, setShowRespassword] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
   const [credData, setCredData] = useState({
     firstName: "",
     middleName: "",
@@ -48,39 +51,52 @@ const page = () => {
   const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     if (!isRegistering) {
-      toast.info("Sign-in will be connected after registration.");
-      return;
-    }
-    try {
-      setLoading(true);
-      if (credData.password.length < 8) {
-        toast.error("Password is too short");
-        return;
+      try {
+        setLoading(true);
+        const data = await login(credData.email, credData.password);
+        if (data.success) {
+          toast.success(data.message);
+          router.push(`/dashboard/${data.id}`);
+        } else {
+          toast.error(data.message);
+        }
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Login failed.");
+      } finally {
+        setLoading(false);
       }
-      if (credData.rePassword !== credData.password) {
-        toast.error("Password doesn't match");
-        return;
+    } else {
+      try {
+        setLoading(true);
+        if (credData.password.length < 8) {
+          toast.error("Password is too short");
+          return;
+        }
+        if (credData.rePassword !== credData.password) {
+          toast.error("Password doesn't match");
+          return;
+        }
+        const data = await register(
+          credData.firstName,
+          credData.middleName,
+          credData.lastName,
+          credData.ext,
+          credData.email,
+          credData.password,
+        );
+        if (data.success) {
+          toast.success(data.message);
+          setSubmitted(true);
+        } else {
+          toast.error(data.message);
+        }
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Registration failed.",
+        );
+      } finally {
+        setLoading(false);
       }
-      const data = await register(
-        credData.firstName,
-        credData.middleName,
-        credData.lastName,
-        credData.ext,
-        credData.email,
-        credData.password,
-      );
-      if (data.success) {
-        toast.success(data.message);
-        setSubmitted(true);
-      } else {
-        toast.error(data.message);
-      }
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Registration failed.",
-      );
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -439,19 +455,25 @@ const page = () => {
                     type="submit"
                     className="group min-h-12 w-full rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/90 active:translate-y-0"
                   >
-                    {submitted
-                      ? "You're all set"
-                      : loading
-                        ? "Creating your account"
-                        : isRegistering
-                          ? "Create account"
-                          : "Sign In"}
-
                     {submitted ? (
-                      <Check className="ml-2 size-4" />
+                      "You're all set"
+                    ) : loading ? (
+                      <p className="flex items-center gap-2">
+                        <Spinner />{" "}
+                        {isRegistering ? "Creating your account" : "Signing In"}
+                      </p>
+                    ) : isRegistering ? (
+                      "Create account"
                     ) : (
-                      <ArrowRight className="ml-2 size-4 transition-transform duration-200 group-hover:translate-x-1" />
+                      "Sign In"
                     )}
+
+                    {!loading &&
+                      (submitted ? (
+                        <Check className="ml-2 size-4" />
+                      ) : (
+                        <ArrowRight className="ml-2 size-4 transition-transform duration-200 group-hover:translate-x-1" />
+                      ))}
                   </Button>
                 </form>
               </CardContent>

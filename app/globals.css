@@ -126,7 +126,6 @@
 
   html {
     @apply font-sans;
-    scroll-behavior: smooth;
     text-rendering: optimizeLegibility;
     -webkit-text-size-adjust: 100%;
   }

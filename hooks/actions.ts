@@ -22,4 +22,19 @@ export async function register(firstName: string, middleName: string, lastName: 
         return { success: false, message: handleError(error)}
     }
 }
+
+export async function login(email: string, password: string) {
+    try {
+        const req = await fetch("/api/v1/auth/login", {
+            method: "POST",
+            headers,
+            body: JSON.stringify({email, password})
+        });
+        const data = await req.json();
+        if(!data.success) return { success: false, message: data.message};
+        return data;
+    } catch (error) {
+        return { success: false, message: handleError(error)}
+    }
+}
 //end of auth
