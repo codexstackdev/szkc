@@ -38,3 +38,34 @@ export async function login(email: string, password: string) {
     }
 }
 //end of auth
+
+//org
+export async function getOrganizations(){
+    try {
+        const req = await fetch(`/api/v1/organizations`, {
+            method: "GET",
+            headers
+        });
+        const data = await req.json();
+        if(!data.success) return { success: false, message: data.message};
+        return data;
+    } catch (error) {
+        return { success: false, message: handleError(error)}
+    }
+}
+
+export async function createOrganization(name:string, type:string, admin?:string){
+    try {
+        const req = await fetch(`/api/v1/organizations`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({name, type, admin})
+        });
+        const data = await req.json();
+        if(!data.success) return { success: false, message: data.message};
+        return data;
+    } catch (error) {
+        return { success: false, message: handleError(error)}
+    }
+}
+//end of org
